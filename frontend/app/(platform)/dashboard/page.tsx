@@ -2,18 +2,14 @@ import {
   Activity,
   CalendarCheck,
   CircleDollarSign,
+  ClipboardList,
   PackageMinus,
 } from "lucide-react";
+import { EmptyState } from "../../_components/empty-state";
 import { PageHeader } from "../../_components/page-header";
 import { StatCard } from "../../_components/stat-card";
 import { StatusPill } from "../../_components/status-pill";
-import {
-  appointmentsToday,
-  inventoryAlerts,
-  recentOrders,
-  serviceColumns,
-  workshopStats,
-} from "../../_data/autocore";
+import { serviceColumns, workshopStats } from "../../_data/autocore";
 
 export const metadata = {
   title: "Dashboard",
@@ -32,7 +28,7 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Operacion"
         title="Dashboard del taller"
-        description="Vista ejecutiva de ordenes, citas, inventario y flujo operativo para tomar decisiones rapidas durante el dia."
+        description="Panel inicial en cero, listo para recibir datos reales desde el backend local de AutoCore."
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -48,116 +44,69 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-        <div className="rounded-lg border border-black/[0.06] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3">
-            <h2 className="text-sm font-semibold text-[#15171c]">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
+        <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+          <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+            <h2 className="text-sm font-semibold text-[#eef2f7]">
               Ordenes recientes
             </h2>
-            <span className="text-xs font-medium text-[#687083]">
-              Actualizado hoy
-            </span>
+            <StatusPill label="0 registros" tone="neutral" />
           </div>
-          <div className="divide-y divide-black/[0.06]">
-            {recentOrders.map((order) => (
-              <div
-                key={order.code}
-                className="grid gap-3 px-4 py-4 md:grid-cols-[0.8fr_1.1fr_1fr_auto] md:items-center"
-              >
-                <div>
-                  <p className="font-mono text-xs text-[#687083]">
-                    {order.code}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-[#15171c]">
-                    {order.customer}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-[#15171c]">{order.vehicle}</p>
-                  <p className="mt-1 text-xs text-[#687083]">
-                    {order.service}
-                  </p>
-                </div>
-                <StatusPill label={order.status} tone={order.tone} />
-                <p className="text-sm font-semibold text-[#15171c]">
-                  {order.total}
-                </p>
-              </div>
-            ))}
+          <div className="p-4">
+            <EmptyState
+              icon={<ClipboardList className="size-4" aria-hidden="true" />}
+              title="Sin ordenes registradas"
+              description="Cuando cierres una orden, aqui aparecera su avance, subtotal, impuestos y total final."
+            />
           </div>
         </div>
 
         <div className="grid gap-6">
-          <div className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-[#15171c]">
+          <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+            <h2 className="text-sm font-semibold text-[#eef2f7]">
               Agenda de hoy
             </h2>
-            <div className="mt-4 space-y-4">
-              {appointmentsToday.map((item) => (
-                <div key={`${item.time}-${item.customer}`} className="flex gap-3">
-                  <div className="w-14 shrink-0 rounded-md bg-[#f6f7f9] px-2 py-1 text-center text-xs font-semibold text-[#15171c]">
-                    {item.time}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-[#15171c]">
-                      {item.customer}
-                    </p>
-                    <p className="mt-1 text-xs text-[#687083]">
-                      {item.vehicle} - {item.reason}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="mt-4">
+              <EmptyState
+                icon={<CalendarCheck className="size-4" aria-hidden="true" />}
+                title="Sin citas para hoy"
+                description="La agenda queda preparada para reservar horarios y evitar cruces."
+              />
             </div>
           </div>
 
-          <div className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-[#15171c]">
+          <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+            <h2 className="text-sm font-semibold text-[#eef2f7]">
               Inventario critico
             </h2>
-            <div className="mt-4 space-y-3">
-              {inventoryAlerts.map((item) => (
-                <div
-                  key={item.part}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <p className="text-sm text-[#15171c]">{item.part}</p>
-                  <p className="text-xs font-medium text-amber-700">
-                    {item.stock}/{item.minimum}
-                  </p>
-                </div>
-              ))}
+            <div className="mt-4">
+              <EmptyState
+                icon={<PackageMinus className="size-4" aria-hidden="true" />}
+                title="Sin alertas"
+                description="Las piezas bajo minimo apareceran despues de registrar inventario."
+              />
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mt-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {serviceColumns.map((column) => (
-            <div
-              key={column.title}
-              className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[#15171c]">
-                  {column.title}
-                </h2>
-                <StatusPill label={column.count} tone={column.tone} />
-              </div>
-              <div className="mt-4 space-y-2">
-                {column.orders.map((order) => (
-                  <div
-                    key={order}
-                    className="rounded-md border border-black/[0.06] bg-[#f6f7f9] px-3 py-2 text-sm text-[#15171c]"
-                  >
-                    {order}
-                  </div>
-                ))}
-              </div>
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {serviceColumns.map((column) => (
+          <div
+            key={column.title}
+            className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[#eef2f7]">
+                {column.title}
+              </h2>
+              <StatusPill label={column.count} tone={column.tone} />
             </div>
-          ))}
-        </div>
+            <div className="mt-4 rounded-md border border-dashed border-white/[0.12] bg-white/[0.025] px-3 py-6 text-center text-sm text-[#8b95a7]">
+              Sin ordenes
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );

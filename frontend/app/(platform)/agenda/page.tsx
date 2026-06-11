@@ -1,7 +1,8 @@
 import { CalendarClock, Clock3, Plus, UserRoundCheck } from "lucide-react";
+import { EmptyState } from "../../_components/empty-state";
 import { PageHeader } from "../../_components/page-header";
 import { StatCard } from "../../_components/stat-card";
-import { appointmentsToday, weeklyAppointments } from "../../_data/autocore";
+import { weeklyAppointments } from "../../_data/autocore";
 
 export const metadata = {
   title: "Agenda",
@@ -13,7 +14,7 @@ export default function AgendaPage() {
       <PageHeader
         eyebrow="Planeacion"
         title="Agenda de citas"
-        description="Calendario operativo para recepcion, diagnosticos, entregas, cargas de trabajo y disponibilidad del equipo tecnico."
+        description="Modulo preparado para reservar horarios, validar cruces y convertir citas en ordenes de servicio."
         action={{
           label: "Nueva cita",
           href: "/agenda",
@@ -24,83 +25,89 @@ export default function AgendaPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Citas hoy"
-          value="11"
-          detail="9 confirmadas"
+          value="0"
+          detail="Sin reservas"
           tone="blue"
           icon={<CalendarClock className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Ocupacion"
-          value="78%"
-          detail="Capacidad tecnica"
+          value="0%"
+          detail="Capacidad libre"
           tone="green"
           icon={<UserRoundCheck className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Retrasos"
-          value="2"
-          detail="Ordenes reprogramadas"
+          value="0"
+          detail="Sin reprogramaciones"
           tone="amber"
           icon={<Clock3 className="size-4" aria-hidden="true" />}
         />
       </section>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-black/[0.06] bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-[#15171c]">
-            Semana operativa
+      <section className="mt-6 grid gap-6 lg:grid-cols-[0.86fr_1.14fr]">
+        <form className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+          <h2 className="text-sm font-semibold text-[#eef2f7]">
+            Programar cita
           </h2>
-          <div className="mt-5 space-y-4">
-            {weeklyAppointments.map((day) => {
-              const width = `${Math.round((day.booked / day.total) * 100)}%`;
-              return (
-                <div key={day.day}>
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="font-medium text-[#15171c]">
-                      {day.day}
-                    </span>
-                    <span className="text-[#687083]">
-                      {day.booked}/{day.total}
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-[#edf0f3]">
-                    <div
-                      className="h-2 rounded-full bg-[#111827]"
-                      style={{ width }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mt-4 grid gap-3">
+            {["Cliente", "Vehiculo", "Fecha", "Hora", "Motivo"].map((label) => (
+              <label key={label} className="grid gap-2 text-sm">
+                <span className="text-[#8b95a7]">{label}</span>
+                <input className="h-10 rounded-md border border-white/[0.10] bg-white/[0.04] px-3 text-[#eef2f7] outline-none focus:border-sky-300/40" />
+              </label>
+            ))}
           </div>
-        </div>
+          <button
+            type="button"
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-white px-4 text-sm font-medium text-[#080b10]"
+          >
+            Agendar cita
+          </button>
+        </form>
 
-        <div className="rounded-lg border border-black/[0.06] bg-white shadow-sm">
-          <div className="border-b border-black/[0.06] px-4 py-3">
-            <h2 className="text-sm font-semibold text-[#15171c]">
+        <div className="grid gap-6">
+          <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+            <h2 className="text-sm font-semibold text-[#eef2f7]">
+              Semana operativa
+            </h2>
+            <div className="mt-5 space-y-4">
+              {weeklyAppointments.map((day) => {
+                const width = `${Math.round((day.booked / day.total) * 100)}%`;
+                return (
+                  <div key={day.day}>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span className="font-medium text-[#eef2f7]">
+                        {day.day}
+                      </span>
+                      <span className="text-[#8b95a7]">
+                        {day.booked}/{day.total}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/[0.08]">
+                      <div
+                        className="h-2 rounded-full bg-sky-300"
+                        style={{ width }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+            <h2 className="text-sm font-semibold text-[#eef2f7]">
               Proximas citas
             </h2>
-          </div>
-          <div className="divide-y divide-black/[0.06]">
-            {appointmentsToday.map((item) => (
-              <div
-                key={`${item.time}-${item.customer}`}
-                className="grid gap-3 px-4 py-4 md:grid-cols-[72px_1fr_auto] md:items-center"
-              >
-                <div className="rounded-md bg-[#f6f7f9] px-3 py-2 text-center text-sm font-semibold text-[#15171c]">
-                  {item.time}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[#15171c]">
-                    {item.customer}
-                  </p>
-                  <p className="mt-1 text-xs text-[#687083]">
-                    {item.vehicle}
-                  </p>
-                </div>
-                <p className="text-sm text-[#687083]">{item.reason}</p>
-              </div>
-            ))}
+            <div className="mt-4">
+              <EmptyState
+                icon={<CalendarClock className="size-4" aria-hidden="true" />}
+                title="Sin citas agendadas"
+                description="Las citas guardadas apareceran aqui con su hora, cliente, vehiculo y motivo."
+              />
+            </div>
           </div>
         </div>
       </section>

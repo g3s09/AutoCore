@@ -1,8 +1,7 @@
 import { KeyRound, ShieldPlus, UsersRound } from "lucide-react";
+import { EmptyState } from "../../_components/empty-state";
 import { PageHeader } from "../../_components/page-header";
 import { StatCard } from "../../_components/stat-card";
-import { StatusPill } from "../../_components/status-pill";
-import { users } from "../../_data/autocore";
 
 export const metadata = {
   title: "Usuarios",
@@ -14,7 +13,7 @@ export default function UsuariosPage() {
       <PageHeader
         eyebrow="Seguridad"
         title="Usuarios y roles"
-        description="Administracion de accesos, perfiles operativos, permisos por modulo y control basico para equipos de taller."
+        description="Base preparada para perfiles, permisos por modulo y separacion de responsabilidades del equipo."
         action={{
           label: "Invitar usuario",
           href: "/usuarios",
@@ -25,49 +24,59 @@ export default function UsuariosPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Usuarios activos"
-          value="8"
-          detail="4 roles configurados"
+          value="0"
+          detail="Sin cuentas creadas"
           tone="green"
           icon={<UsersRound className="size-4" aria-hidden="true" />}
         />
         <StatCard
-          label="Permisos sensibles"
-          value="3"
-          detail="Inventario, reportes, usuarios"
+          label="Roles configurados"
+          value="0"
+          detail="Pendiente de permisos"
           tone="amber"
           icon={<KeyRound className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Invitaciones"
-          value="1"
-          detail="Pendiente de aceptar"
+          value="0"
+          detail="Sin invitaciones"
           tone="blue"
           icon={<ShieldPlus className="size-4" aria-hidden="true" />}
         />
       </section>
 
-      <section className="mt-6 overflow-hidden rounded-lg border border-black/[0.06] bg-white shadow-sm">
-        <div className="border-b border-black/[0.06] px-4 py-3">
-          <h2 className="text-sm font-semibold text-[#15171c]">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
+        <form className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+          <h2 className="text-sm font-semibold text-[#eef2f7]">
+            Alta de usuario
+          </h2>
+          <div className="mt-4 grid gap-3">
+            {["Nombre", "Correo", "Rol"].map((label) => (
+              <label key={label} className="grid gap-2 text-sm">
+                <span className="text-[#8b95a7]">{label}</span>
+                <input className="h-10 rounded-md border border-white/[0.10] bg-white/[0.04] px-3 text-[#eef2f7] outline-none focus:border-sky-300/40" />
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-white px-4 text-sm font-medium text-[#080b10]"
+          >
+            Guardar usuario
+          </button>
+        </form>
+
+        <div className="rounded-lg border border-white/[0.08] bg-[#0d1117]/95 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+          <h2 className="text-sm font-semibold text-[#eef2f7]">
             Equipo del taller
           </h2>
-        </div>
-        <div className="divide-y divide-black/[0.06]">
-          {users.map((user) => (
-            <div
-              key={user.email}
-              className="grid gap-3 px-4 py-4 md:grid-cols-[1fr_220px_160px] md:items-center"
-            >
-              <div>
-                <p className="text-sm font-medium text-[#15171c]">
-                  {user.name}
-                </p>
-                <p className="mt-1 text-xs text-[#687083]">{user.email}</p>
-              </div>
-              <p className="text-sm text-[#687083]">{user.role}</p>
-              <StatusPill label={user.status} tone={user.tone} />
-            </div>
-          ))}
+          <div className="mt-4">
+            <EmptyState
+              icon={<UsersRound className="size-4" aria-hidden="true" />}
+              title="Sin usuarios"
+              description="Los usuarios registrados podran operar modulos segun su rol."
+            />
+          </div>
         </div>
       </section>
     </div>
