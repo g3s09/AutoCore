@@ -26,6 +26,36 @@ function parseBody<T extends z.ZodType>(schema: T, body: unknown): z.infer<T> {
   return schema.parse(body);
 }
 
+function required<T>(item: T | undefined, label: string): T {
+  if (!item) {
+    throw new Error(`${label} no encontrado`);
+  }
+
+  return item;
+}
+
+const customerUpdateSchema = customerSchema.partial().extend({
+  balance: z.coerce.number().min(0).optional(),
+});
+
+const vehicleUpdateSchema = vehicleSchema.partial();
+
+const appointmentUpdateSchema = appointmentSchema.partial().extend({
+  status: z.enum(["scheduled", "completed", "cancelled"]).optional(),
+});
+
+const inventoryUpdateSchema = inventoryItemSchema.partial();
+
+const diagnosticUpdateSchema = diagnosticSchema.partial();
+
+const userUpdateSchema = userSchema.partial().extend({
+  active: z.boolean().optional(),
+});
+
+const orderStatusSchema = z.object({
+  status: z.enum(["reception", "diagnosis", "repair", "ready", "cancelled"]),
+});
+
 function overlap(
   aStart: string,
   aMinutes: number,
@@ -90,6 +120,26 @@ routes.post("/customers", async (request, response) => {
   response.status(201).json(item);
 });
 
+routes.patch("/customers/:id", async (request, response) => {
+  const input = parseBody(customerUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    const customer = required(
+      data.customers.find((storedCustomer) => storedCustomer.id === request.params.id),
+      "Cliente",
+    );
+
+    if (input.name !== undefined) customer.name = input.name;
+    if (input.phone !== undefined) customer.phone = input.phone;
+    if (input.email !== undefined) customer.email = input.email;
+    if (input.taxId !== undefined) customer.taxId = input.taxId;
+    if (input.balance !== undefined) customer.balanceCents = toCents(input.balance);
+    customer.updatedAt = now();
+    return customer;
+  });
+
+  response.json(item);
+});
+
 routes.get("/vehicles", async (_request, response) => {
   response.json((await readStore()).vehicles);
 });
@@ -112,6 +162,30 @@ routes.post("/vehicles", async (request, response) => {
   });
 
   response.status(201).json(item);
+});
+
+routes.patch("/vehicles/:id", async (request, response) => {
+  const input = parseBody(vehicleUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    if (input.customerId && !data.customers.some((customer) => customer.id === input.customerId)) {
+      throw new Error("Cliente no encontrado");
+    }
+
+    const vehicle = required(
+      data.vehicles.find((storedVehicle) => storedVehicle.id === request.params.id),
+      "Vehiculo",
+    );
+
+    if (input.customerId !== undefined) vehicle.customerId = input.customerId;
+    if (input.plate !== undefined) vehicle.plate = input.plate;
+    if (input.makeModel !== undefined) vehicle.makeModel = input.makeModel;
+    if (input.vin !== undefined) vehicle.vin = input.vin;
+    if (input.mileageKm !== undefined) vehicle.mileageKm = input.mileageKm;
+    vehicle.updatedAt = now();
+    return vehicle;
+  });
+
+  response.json(item);
 });
 
 routes.get("/appointments", async (_request, response) => {
@@ -150,6 +224,45 @@ routes.post("/appointments", async (request, response) => {
   response.status(201).json(item);
 });
 
+routes.patch("/appointments/:id", async (request, response) => {
+  const input = parseBody(appointmentUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    const appointment = required(
+      data.appointments.find((storedAppointment) => storedAppointment.id === request.params.id),
+      "Cita",
+    );
+    const scheduledAt = input.scheduledAt ?? appointment.scheduledAt;
+    const durationMinutes = input.durationMinutes ?? appointment.durationMinutes;
+
+    const hasOverlap = data.appointments.some(
+      (storedAppointment) =>
+        storedAppointment.id !== appointment.id &&
+        storedAppointment.status === "scheduled" &&
+        overlap(
+          storedAppointment.scheduledAt,
+          storedAppointment.durationMinutes,
+          scheduledAt,
+          durationMinutes,
+        ),
+    );
+
+    if (hasOverlap) {
+      throw new Error("Ya existe una cita en ese horario");
+    }
+
+    if (input.customerId !== undefined) appointment.customerId = input.customerId;
+    if (input.vehicleId !== undefined) appointment.vehicleId = input.vehicleId;
+    if (input.scheduledAt !== undefined) appointment.scheduledAt = input.scheduledAt;
+    if (input.durationMinutes !== undefined) appointment.durationMinutes = input.durationMinutes;
+    if (input.reason !== undefined) appointment.reason = input.reason;
+    if (input.status !== undefined) appointment.status = input.status;
+    appointment.updatedAt = now();
+    return appointment;
+  });
+
+  response.json(item);
+});
+
 routes.get("/inventory", async (_request, response) => {
   response.json((await readStore()).inventoryItems);
 });
@@ -180,6 +293,37 @@ routes.post("/inventory", async (request, response) => {
   response.status(201).json(item);
 });
 
+routes.patch("/inventory/:id", async (request, response) => {
+  const input = parseBody(inventoryUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    const inventoryItem = required(
+      data.inventoryItems.find((storedItem) => storedItem.id === request.params.id),
+      "Pieza",
+    );
+
+    if (
+      input.sku !== undefined &&
+      data.inventoryItems.some(
+        (storedItem) => storedItem.id !== inventoryItem.id && storedItem.sku === input.sku,
+      )
+    ) {
+      throw new Error("SKU duplicado");
+    }
+
+    if (input.sku !== undefined) inventoryItem.sku = input.sku;
+    if (input.name !== undefined) inventoryItem.name = input.name;
+    if (input.category !== undefined) inventoryItem.category = input.category;
+    if (input.stock !== undefined) inventoryItem.stock = input.stock;
+    if (input.minStock !== undefined) inventoryItem.minStock = input.minStock;
+    if (input.cost !== undefined) inventoryItem.costCents = toCents(input.cost);
+    if (input.price !== undefined) inventoryItem.priceCents = toCents(input.price);
+    inventoryItem.updatedAt = now();
+    return inventoryItem;
+  });
+
+  response.json(item);
+});
+
 routes.get("/orders", async (_request, response) => {
   response.json((await readStore()).serviceOrders);
 });
@@ -203,6 +347,25 @@ routes.post("/orders", async (request, response) => {
   });
 
   response.status(201).json(item);
+});
+
+routes.patch("/orders/:id/status", async (request, response) => {
+  const input = parseBody(orderStatusSchema, request.body);
+  const item = await updateStore((data) => {
+    const order = required(
+      data.serviceOrders.find((serviceOrder) => serviceOrder.id === request.params.id),
+      "Orden",
+    );
+    if (order.status === "closed") {
+      throw new Error("No puedes cambiar el estado de una orden cerrada");
+    }
+
+    order.status = input.status;
+    order.updatedAt = now();
+    return order;
+  });
+
+  response.json(item);
 });
 
 routes.post("/orders/:id/items", async (request, response) => {
@@ -328,6 +491,26 @@ routes.post("/diagnostics", async (request, response) => {
   response.status(201).json(item);
 });
 
+routes.patch("/diagnostics/:id", async (request, response) => {
+  const input = parseBody(diagnosticUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    const diagnostic = required(
+      data.diagnostics.find((storedDiagnostic) => storedDiagnostic.id === request.params.id),
+      "Diagnostico",
+    );
+
+    if (input.orderId !== undefined) diagnostic.orderId = input.orderId;
+    if (input.vehicleId !== undefined) diagnostic.vehicleId = input.vehicleId;
+    if (input.symptom !== undefined) diagnostic.symptom = input.symptom;
+    if (input.finding !== undefined) diagnostic.finding = input.finding;
+    if (input.priority !== undefined) diagnostic.priority = input.priority;
+    diagnostic.updatedAt = now();
+    return diagnostic;
+  });
+
+  response.json(item);
+});
+
 routes.get("/users", async (_request, response) => {
   response.json((await readStore()).users);
 });
@@ -347,4 +530,23 @@ routes.post("/users", async (request, response) => {
   });
 
   response.status(201).json(item);
+});
+
+routes.patch("/users/:id", async (request, response) => {
+  const input = parseBody(userUpdateSchema, request.body);
+  const item = await updateStore((data) => {
+    const user = required(
+      data.users.find((storedUser) => storedUser.id === request.params.id),
+      "Usuario",
+    );
+
+    if (input.name !== undefined) user.name = input.name;
+    if (input.email !== undefined) user.email = input.email;
+    if (input.role !== undefined) user.role = input.role;
+    if (input.active !== undefined) user.active = input.active;
+    user.updatedAt = now();
+    return user;
+  });
+
+  response.json(item);
 });
