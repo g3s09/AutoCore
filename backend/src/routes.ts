@@ -44,7 +44,23 @@ const appointmentUpdateSchema = appointmentSchema.partial().extend({
   status: z.enum(["scheduled", "completed", "cancelled"]).optional(),
 });
 
-const inventoryUpdateSchema = inventoryItemSchema.partial();
+const inventoryUpdateSchema = z.object({
+  sku: z.string().trim().min(2).optional(),
+  name: z.string().trim().min(2).optional(),
+  category: z.enum(["refaccion", "herramienta", "maquinaria"]).optional(),
+  location: z.string().trim().min(2).optional(),
+  stock: z.coerce.number().int().min(0).optional(),
+  minStock: z.coerce.number().int().min(0).optional(),
+  cost: z.coerce.number().min(0).optional(),
+  price: z.coerce.number().min(0).optional(),
+  status: z.enum(["disponible", "en_uso", "mantenimiento"]).optional(),
+  assignedTo: z.string().trim().min(1).optional(),
+});
+
+const stockAdjustmentSchema = z.object({
+  quantity: z.coerce.number().int(),
+  reason: z.string().trim().min(2).default("Ajuste manual"),
+});
 
 const diagnosticUpdateSchema = diagnosticSchema.partial();
 
@@ -82,7 +98,10 @@ routes.get("/summary", async (_request, response) => {
     0,
   );
   const inventoryValueCents = data.inventoryItems.reduce(
-    (sum, item) => sum + item.stock * item.costCents,
+    (sum, item) =>
+      item.category === "refaccion"
+        ? sum + item.stock * (item.costCents ?? 0)
+        : sum,
     0,
   );
 
@@ -94,7 +113,9 @@ routes.get("/summary", async (_request, response) => {
     closedOrders: closedOrders.length,
     monthlyRevenueCents,
     inventoryValueCents,
-    lowStockItems: data.inventoryItems.filter((item) => item.stock <= item.minStock)
+    lowStockItems: data.inventoryItems.filter(
+      (item) => item.category === "refaccion" && item.stock <= (item.minStock ?? 0),
+    )
       .length,
   });
 });
@@ -274,18 +295,34 @@ routes.post("/inventory", async (request, response) => {
       throw new Error("SKU duplicado");
     }
 
-    const inventoryItem = {
-      id: newId(),
-      sku: input.sku,
-      name: input.name,
-      category: input.category,
-      stock: input.stock,
-      minStock: input.minStock,
-      costCents: toCents(input.cost),
-      priceCents: toCents(input.price),
-      createdAt: now(),
-      updatedAt: now(),
-    };
+    const inventoryItem =
+      input.category === "refaccion"
+        ? {
+            id: newId(),
+            sku: input.sku,
+            name: input.name,
+            category: input.category,
+            location: input.location,
+            stock: input.stock,
+            minStock: input.minStock,
+            costCents: toCents(input.cost),
+            priceCents: toCents(input.price),
+            createdAt: now(),
+            updatedAt: now(),
+          }
+        : {
+            id: newId(),
+            sku: input.sku,
+            name: input.name,
+            category: input.category,
+            location: input.location,
+            stock: input.stock,
+            costCents: toCents(input.cost),
+            status: input.status,
+            assignedTo: input.assignedTo,
+            createdAt: now(),
+            updatedAt: now(),
+          };
     data.inventoryItems.push(inventoryItem);
     return inventoryItem;
   });
@@ -313,15 +350,74 @@ routes.patch("/inventory/:id", async (request, response) => {
     if (input.sku !== undefined) inventoryItem.sku = input.sku;
     if (input.name !== undefined) inventoryItem.name = input.name;
     if (input.category !== undefined) inventoryItem.category = input.category;
+    if (input.location !== undefined) inventoryItem.location = input.location;
     if (input.stock !== undefined) inventoryItem.stock = input.stock;
     if (input.minStock !== undefined) inventoryItem.minStock = input.minStock;
     if (input.cost !== undefined) inventoryItem.costCents = toCents(input.cost);
     if (input.price !== undefined) inventoryItem.priceCents = toCents(input.price);
+    if (input.status !== undefined) inventoryItem.status = input.status;
+    if (input.assignedTo !== undefined) inventoryItem.assignedTo = input.assignedTo;
+
+    if (inventoryItem.category !== "refaccion") {
+      inventoryItem.minStock = undefined;
+      inventoryItem.priceCents = undefined;
+      inventoryItem.stock = Math.max(inventoryItem.stock, 1);
+    }
+
     inventoryItem.updatedAt = now();
     return inventoryItem;
   });
 
   response.json(item);
+});
+
+routes.patch("/inventory/:id/stock", async (request, response) => {
+  const input = parseBody(stockAdjustmentSchema, request.body);
+  const item = await updateStore((data) => {
+    const inventoryItem = required(
+      data.inventoryItems.find((storedItem) => storedItem.id === request.params.id),
+      "Pieza",
+    );
+
+    if (inventoryItem.category !== "refaccion") {
+      throw new Error("Solo las refacciones y consumibles manejan ajuste de stock");
+    }
+
+    const nextStock = inventoryItem.stock + input.quantity;
+    if (nextStock < 0) {
+      throw new Error("El stock no puede quedar negativo");
+    }
+
+    inventoryItem.stock = nextStock;
+    inventoryItem.updatedAt = now();
+    data.inventoryMovements.push({
+      id: newId(),
+      inventoryItemId: inventoryItem.id,
+      quantity: input.quantity,
+      reason: input.reason,
+      createdAt: now(),
+    });
+    return inventoryItem;
+  });
+
+  response.json(item);
+});
+
+routes.delete("/inventory/:id", async (request, response) => {
+  await updateStore((data) => {
+    const isUsed = data.serviceOrders.some((order) =>
+      order.items.some((item) => item.inventoryItemId === request.params.id),
+    );
+    if (isUsed) {
+      throw new Error("No puedes eliminar una pieza usada en una orden");
+    }
+
+    data.inventoryItems = data.inventoryItems.filter(
+      (item) => item.id !== request.params.id,
+    );
+  });
+
+  response.status(204).send();
 });
 
 routes.get("/orders", async (_request, response) => {
@@ -385,6 +481,9 @@ routes.post("/orders/:id/items", async (request, response) => {
       );
       if (!inventoryItem) {
         throw new Error("Pieza de inventario no encontrada");
+      }
+      if (inventoryItem.category !== "refaccion") {
+        throw new Error("Solo las refacciones y consumibles pueden agregarse como pieza de orden");
       }
     }
 

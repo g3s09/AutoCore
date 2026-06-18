@@ -13,6 +13,8 @@ export type OrderStatus =
 
 export type AppointmentStatus = "scheduled" | "completed" | "cancelled";
 export type OrderItemType = "labor" | "part";
+export type InventoryCategory = "refaccion" | "herramienta" | "maquinaria";
+export type AssetStatus = "disponible" | "en_uso" | "mantenimiento";
 
 export type Customer = {
   id: string;
@@ -52,11 +54,14 @@ export type InventoryItem = {
   id: string;
   sku: string;
   name: string;
-  category?: string;
+  category: InventoryCategory;
+  location: string;
   stock: number;
-  minStock: number;
-  costCents: number;
-  priceCents: number;
+  minStock?: number;
+  costCents?: number;
+  priceCents?: number;
+  status?: AssetStatus;
+  assignedTo?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -167,15 +172,35 @@ export const appointmentSchema = z.object({
   reason: z.string().trim().min(2),
 });
 
-export const inventoryItemSchema = z.object({
+const baseInventoryItemSchema = z.object({
   sku: z.string().trim().min(2),
   name: z.string().trim().min(2),
-  category: optionalText,
-  stock: z.coerce.number().int().min(0).default(0),
-  minStock: z.coerce.number().int().min(0).default(0),
-  cost: money,
-  price: money,
+  location: z.string().trim().min(2),
 });
+
+export const inventoryItemSchema = z.discriminatedUnion("category", [
+  baseInventoryItemSchema.extend({
+    category: z.literal("refaccion"),
+    stock: z.coerce.number().int().min(0),
+    minStock: z.coerce.number().int().min(0),
+    cost: money,
+    price: money,
+  }),
+  baseInventoryItemSchema.extend({
+    category: z.literal("herramienta"),
+    stock: z.coerce.number().int().min(1).default(1),
+    cost: money,
+    status: z.enum(["disponible", "en_uso", "mantenimiento"]),
+    assignedTo: optionalText,
+  }),
+  baseInventoryItemSchema.extend({
+    category: z.literal("maquinaria"),
+    stock: z.coerce.number().int().min(1).default(1),
+    cost: money,
+    status: z.enum(["disponible", "en_uso", "mantenimiento"]),
+    assignedTo: optionalText,
+  }),
+]);
 
 export const serviceOrderSchema = z.object({
   customerId: optionalText,
